@@ -19,6 +19,7 @@ interface ChatContextType {
   createNewConversation: () => void;
   deleteConversation: (conversationId: string) => Promise<void>;
   updateConversationTitle: (conversationId: string, newTitle: string) => void;
+  updateConversationSystemPrompt: (conversationId: string, prompt: string) => void;
   addNewConversation: (conversation: Conversation) => void;
   addOptimisticMessage: (message: Omit<Message, 'id' | 'created_at'>) => string;
   updateStreamingMessage: (messageId: string, content: string) => void;
@@ -201,8 +202,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateConversationTitle = (conversationId: string, newTitle: string) => {
-    setConversations(prev => prev.map(conv => 
-      conv.id === conversationId 
+    setConversations(prev => prev.map(conv =>
+      conv.id === conversationId
         ? { ...conv, title: newTitle }
         : conv
     ));
@@ -210,6 +211,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // Also update active conversation if it's the one being updated
     if (activeConversation?.id === conversationId) {
       setActiveConversation(prev => prev ? { ...prev, title: newTitle } : null);
+    }
+  };
+
+  const updateConversationSystemPrompt = (conversationId: string, prompt: string) => {
+    setConversations(prev => prev.map(conv =>
+      conv.id === conversationId
+        ? { ...conv, system_prompt: prompt }
+        : conv
+    ));
+
+    if (activeConversation?.id === conversationId) {
+      setActiveConversation(prev => prev ? { ...prev, system_prompt: prompt } : null);
     }
   };
 
@@ -276,6 +289,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         createNewConversation,
         deleteConversation,
         updateConversationTitle,
+        updateConversationSystemPrompt,
         addNewConversation,
         addOptimisticMessage,
         updateStreamingMessage,

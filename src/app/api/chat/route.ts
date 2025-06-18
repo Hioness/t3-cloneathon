@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
           user_id: user.id,
           title: 'New Chat',
           model,
+          system_prompt: '',
         })
         .select()
         .single();
@@ -239,12 +240,22 @@ export async function POST(request: NextRequest) {
       }))
     );
 
+    let systemPrompt = conversation.system_prompt as string | null;
+    let processedPrompt: string | null = null;
+    if (systemPrompt && systemPrompt.trim()) {
+      const userName = user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'User';
+      processedPrompt = systemPrompt
+        .replace(/{{CURRENT_DATE}}/g, new Date().toISOString().split('T')[0])
+        .replace(/{{USER_NAME}}/g, userName);
+    }
+
     const chatMessages = [
+      ...(processedPrompt ? [{ role: 'system' as const, content: processedPrompt }] : []),
       ...formattedMessages,
-      { 
-        role: 'user' as const, 
-        content: contentParts.length > 1 || (contentParts.length === 1 && contentParts[0].type !== 'text') 
-          ? contentParts 
+      {
+        role: 'user' as const,
+        content: contentParts.length > 1 || (contentParts.length === 1 && contentParts[0].type !== 'text')
+          ? contentParts
           : contentParts[0]?.text || message || ''
       }
     ];

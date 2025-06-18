@@ -3,10 +3,11 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 
 import { useChat } from '@/contexts/ChatContext';
-import { Send, Bot, Loader2, ChevronDown, Check, Brain, Search, X, Paperclip, FileImage, FileText, Trash2, AlertCircle, Users, Type } from 'lucide-react';
+import { Send, Bot, Loader2, ChevronDown, Check, Brain, Search, X, Paperclip, FileImage, FileText, Trash2, AlertCircle, Users, Type, Sparkles } from 'lucide-react';
 import { getPopularModels } from '@/lib/openrouter';
 import { Attachment, ConsensusResponse } from '@/types/chat';
 import { MultiModelSelector } from './MultiModelSelector';
+import { SystemPromptModal } from './SystemPromptModal';
 import { 
   getModelCapabilities, 
   canModelProcessFileType, 
@@ -22,6 +23,7 @@ export function ChatInput() {
     refreshMessages,
     setActiveConversation,
     updateConversationTitle,
+    updateConversationSystemPrompt,
     addNewConversation,
     addOptimisticMessage,
     updateStreamingMessage,
@@ -47,6 +49,8 @@ export function ChatInput() {
   const [isConsensusMode, setIsConsensusMode] = useState(false);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [isMultiModelSelectorOpen, setIsMultiModelSelectorOpen] = useState(false);
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [showPromptModal, setShowPromptModal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -86,6 +90,14 @@ export function ChatInput() {
       } else {
         setSelectedModels([]);
       }
+    }
+  }, [activeConversation]);
+
+  useEffect(() => {
+    if (activeConversation) {
+      setSystemPrompt(activeConversation.system_prompt || '');
+    } else {
+      setSystemPrompt('');
     }
   }, [activeConversation]);
 
@@ -174,6 +186,7 @@ export function ChatInput() {
           body: JSON.stringify({
             title: 'New Chat',
             model: selectedModel,
+            system_prompt: systemPrompt,
           }),
         });
 
@@ -387,6 +400,7 @@ export function ChatInput() {
           body: JSON.stringify({
             title: 'New Chat',
             model: `consensus:${selectedModels.join(',')}`,
+            system_prompt: systemPrompt,
           }),
         });
 
@@ -1148,10 +1162,19 @@ export function ChatInput() {
                     <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-2 py-1 bg-black/80 text-white text-xs rounded opacity-0 group-hover/single-model-selector:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
                       Model locked for existing conversation
                     </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
+            )}
+              <button
+                type="button"
+                onClick={() => setShowPromptModal(true)}
+                className="inline-flex items-center gap-2 px-3 py-2 border border-white/10 rounded-xl text-sm glass-hover text-white/80 hover:text-white hover:scale-[1.02] transition-all"
+              >
+                <Sparkles size={16} className="text-yellow-400" />
+                <span>Prompt</span>
+              </button>
             </div>
+          </div>
           </div>
 
 
@@ -1164,6 +1187,28 @@ export function ChatInput() {
         isOpen={isMultiModelSelectorOpen}
         onClose={() => setIsMultiModelSelectorOpen(false)}
       />
+      <SystemPromptModal
+        isOpen={showPromptModal}
+        initialPrompt={systemPrompt}
+        onClose={() => setShowPromptModal(false)}
+        onSave={async (prompt) => {
+          setSystemPrompt(prompt);
+          if (activeConversation) {
+            try {
+              const response = await fetch(`/api/conversations/${activeConversation.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ system_prompt: prompt })
+              });
+              if (response.ok) {
+                updateConversationSystemPrompt(activeConversation.id, prompt);
+              }
+            } catch (e) {
+              console.error('Failed to save system prompt:', e);
+            }
+          }
+        }}
+      />
     </>
   );
-} 
+}

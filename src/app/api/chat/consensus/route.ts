@@ -73,6 +73,7 @@ export async function POST(request: NextRequest) {
           user_id: user.id,
           title: 'New Chat',
           model: `consensus:${models.join(',')}`,
+          system_prompt: '',
         })
         .select()
         .single();
@@ -239,7 +240,19 @@ export async function POST(request: NextRequest) {
       }))
     );
 
-    const conversationHistory = formattedMessages;
+    let systemPrompt = conversation.system_prompt as string | null;
+    let processedPrompt: string | null = null;
+    if (systemPrompt && systemPrompt.trim()) {
+      const userName = user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'User';
+      processedPrompt = systemPrompt
+        .replace(/{{CURRENT_DATE}}/g, new Date().toISOString().split('T')[0])
+        .replace(/{{USER_NAME}}/g, userName);
+    }
+
+    const conversationHistory = [
+      ...(processedPrompt ? [{ role: 'system' as const, content: processedPrompt }] : []),
+      ...formattedMessages,
+    ];
 
     // Add current user message with proper content format
     const currentMessageContent = contentParts.length > 1 || (contentParts.length === 1 && contentParts[0].type !== 'text') 
