@@ -4,8 +4,12 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import remarkMath from 'remark-math';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
+import rehypeKatex from 'rehype-katex';
+import Mermaid from 'mermaid-react';
+import 'katex/dist/katex.min.css';
 import { Copy, Check } from 'lucide-react';
 import { useState } from 'react';
 
@@ -26,6 +30,8 @@ interface CodeBlockProps {
 
 function CodeBlock({ children, className, inline, ...props }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
+  const [output, setOutput] = useState('');
+  const [running, setRunning] = useState(false);
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
 
@@ -34,6 +40,22 @@ function CodeBlock({ children, className, inline, ...props }: CodeBlockProps) {
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRun = async () => {
+    if (language !== 'python') return;
+    setRunning(true);
+    try {
+      const pyodideModule = await import('pyodide');
+      const pyodide = await pyodideModule.loadPyodide({
+        indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/',
+      });
+      const result = await pyodide.runPythonAsync(String(children));
+      setOutput(String(result));
+    } catch (err: any) {
+      setOutput(err.toString());
+    }
+    setRunning(false);
   };
 
   if (inline) {
@@ -47,6 +69,37 @@ function CodeBlock({ children, className, inline, ...props }: CodeBlockProps) {
     );
   }
 
+  if (language === 'mermaid') {
+    return (
+      <div className="w-full block">
+        <div className="relative group my-4 border border-gray-700/50 rounded-lg overflow-hidden w-full">
+          <div className="flex items-center justify-between px-4 py-2 bg-gray-800/80 border-b border-gray-700/50">
+            <span className="text-xs text-gray-300 font-medium">{language}</span>
+            <button
+              onClick={handleCopy}
+              className="cursor-pointer flex items-center gap-1.5 px-2 py-1 text-xs text-gray-300 hover:text-white bg-gray-700/50 hover:bg-gray-600/50 rounded transition-colors"
+            >
+              {copied ? (
+                <>
+                  <Check size={12} />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy size={12} />
+                  Copy
+                </>
+              )}
+            </button>
+          </div>
+          <div className="bg-gray-900/90 overflow-x-auto m-0 p-4 w-full">
+            <Mermaid chart={String(children)} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full block">
       <div className="relative group my-4 border border-gray-700/50 rounded-lg overflow-hidden w-full">
@@ -54,29 +107,44 @@ function CodeBlock({ children, className, inline, ...props }: CodeBlockProps) {
           <span className="text-xs text-gray-300 font-medium">
             {language || 'code'}
           </span>
-          <button
-            onClick={handleCopy}
-            className="cursor-pointer flex items-center gap-1.5 px-2 py-1 text-xs text-gray-300 hover:text-white bg-gray-700/50 hover:bg-gray-600/50 rounded transition-colors"
-          >
-            {copied ? (
-              <>
-                <Check size={12} />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy size={12} />
-                Copy
-              </>
+          <div className="flex gap-2">
+            {language === 'python' && (
+              <button
+                onClick={handleRun}
+                className="cursor-pointer flex items-center gap-1.5 px-2 py-1 text-xs text-gray-300 hover:text-white bg-gray-700/50 hover:bg-gray-600/50 rounded transition-colors"
+              >
+                {running ? 'Running...' : 'Run'}
+              </button>
             )}
-          </button>
+            <button
+              onClick={handleCopy}
+              className="cursor-pointer flex items-center gap-1.5 px-2 py-1 text-xs text-gray-300 hover:text-white bg-gray-700/50 hover:bg-gray-600/50 rounded transition-colors"
+            >
+              {copied ? (
+                <>
+                  <Check size={12} />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy size={12} />
+                  Copy
+                </>
+              )}
+            </button>
+          </div>
         </div>
-        
+
         <pre className="bg-gray-900/90 overflow-x-auto m-0 p-4 w-full">
           <code className={className} {...props}>
             {children}
           </code>
         </pre>
+        {output && (
+          <pre className="bg-gray-900/90 overflow-x-auto m-0 p-4 w-full border-t border-gray-700/50 text-green-400">
+            {output}
+          </pre>
+        )}
       </div>
     </div>
   );
@@ -91,8 +159,8 @@ export function MarkdownRenderer({ content, className = '', isUserMessage = fals
       isErrorMessage ? 'error-message border border-red-500/30 bg-red-500/5 rounded-lg p-3' : ''
     }`}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
-        rehypePlugins={[rehypeHighlight, rehypeRaw]}
+        remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+        rehypePlugins={[rehypeHighlight, rehypeRaw, rehypeKatex]}
         components={{
           code: CodeBlock,
           
