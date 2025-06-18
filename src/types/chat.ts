@@ -35,6 +35,7 @@ export interface Conversation {
   user_id: string;
   title: string;
   model: string;
+  system_prompt: string | null;
   created_at: string;
   updated_at: string;
   messages?: Message[];

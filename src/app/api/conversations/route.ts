@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { title, model } = await request.json();
+    const { title, model, system_prompt } = await request.json();
 
     if (!title || !model) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         title,
         model,
+        system_prompt: system_prompt || '',
       })
       .select()
       .single();
